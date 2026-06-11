@@ -52,7 +52,9 @@ class AbstractStream(ABC):
     ) -> Iterator[dict[str, Any]]:
         """
         Yield transformed records ready for Parquet serialization.
-        For derived streams, `parent_records` contains the parent's raw API records.
+        For derived streams, `parent_records` contains the parent's already-transformed
+        records (flattened, timestamp-cast, with _fivetran_* columns) exactly as the parent
+        yielded them — access flattened key names; nested lists pass through _flatten unchanged.
         For API streams, `client` and `cursor` are used directly.
         Must apply self._transformer.transform_record() to each record before yielding.
         """
