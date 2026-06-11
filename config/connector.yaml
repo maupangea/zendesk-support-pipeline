@@ -1,0 +1,182 @@
+connector_id: zendesk_support
+
+s3:
+  bucket: my-data-lake-raw
+  prefix: zendesk_support
+  region: us-east-1
+
+state:
+  dynamodb_table: zendesk_ingestion_state
+  region: us-east-1
+
+runtime:
+  max_parallelism: 8
+  batch_size_records: 50000
+  batch_size_mb: 128
+  api_rate_limit: 700
+
+# Resolved at load time from AWS Secrets Manager / SSM
+zendesk_subdomain: arn:aws:ssm:us-east-1:000000000000:parameter/zendesk/subdomain
+zendesk_email: arn:aws:ssm:us-east-1:000000000000:parameter/zendesk/email
+zendesk_api_token: arn:aws:secretsmanager:us-east-1:000000000000:secret:zendesk/api_token
+
+streams:
+  # Ticket streams
+  ticket:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  ticket_tag:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  ticket_comment:
+    enabled: true
+    sync_mode: incremental_append
+  ticket_comment_attachment:
+    enabled: true
+    sync_mode: incremental_append
+
+  # Ticket metric streams
+  ticket_metric_event:
+    enabled: true
+    sync_mode: incremental_append
+  ticket_metric:
+    enabled: true
+    sync_mode: incremental_append_deduped
+
+  # Ticket audit streams
+  ticket_audit:
+    enabled: true
+    sync_mode: incremental_append
+  ticket_email_cc:
+    enabled: true
+    sync_mode: incremental_append
+  ticket_follower:
+    enabled: true
+    sync_mode: incremental_append
+
+  # Ticket field streams
+  ticket_field:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  ticket_field_option:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # Ticket form streams
+  ticket_form:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  ticket_form_condition:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # User streams
+  user:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  user_tag:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  user_field:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  user_field_option:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  user_identity:
+    enabled: true
+    sync_mode: incremental_append_deduped
+
+  # Organization streams
+  organization:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  organization_tag:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  organization_field:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  organization_field_option:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  organization_member:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # Group streams
+  group:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  group_membership:
+    enabled: true
+    sync_mode: incremental_append_deduped
+
+  # Satisfaction
+  satisfaction_rating:
+    enabled: true
+    sync_mode: incremental_append_deduped
+
+  # Brand
+  brand:
+    enabled: true
+    sync_mode: incremental_append_deduped
+
+  # Macro streams
+  macro:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  macro_attachment:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # View
+  view:
+    enabled: true
+    sync_mode: incremental_append_deduped
+
+  # Automation streams
+  automation:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  automation_action:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  automation_condition:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # Trigger streams
+  trigger:
+    enabled: true
+    sync_mode: incremental_append_deduped
+  trigger_action:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  trigger_condition:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # SLA policy streams
+  sla_policy:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  sla_policy_filter:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  sla_policy_condition:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # Schedule streams
+  schedule:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+  schedule_holiday:
+    enabled: true
+    sync_mode: full_refresh_overwrite
+
+  # Tags
+  tag:
+    enabled: true
+    sync_mode: full_refresh_overwrite

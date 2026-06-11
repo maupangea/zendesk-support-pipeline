@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zendesk_ingestion"]
+
+[project]
+name = "zendesk-ingestion"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "pyarrow>=16.0",
+    "boto3>=1.34",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "structlog>=24.1",
+    "typer>=0.12",
+    "pyyaml>=6.0",
+    "tenacity>=8.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-mock>=3.14",
+    "pytest-cov>=5.0",
+    "moto[s3,dynamodb,secretsmanager,ssm]>=5.0",
+    "boto3-stubs[s3,dynamodb,secretsmanager,ssm]>=1.34",
+    "mypy>=1.10",
+    "ruff>=0.4",
+    "types-pyyaml>=6.0",
+    "types-boto3>=1.0",
+]
+
+[project.scripts]
+zendesk-ingestion = "zendesk_ingestion.cli:app"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ANN", "B", "SIM"]
+ignore = ["ANN401"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires live Zendesk credentials (deselected by default)"]
+addopts = "-m 'not integration' --cov=src --cov-report=term-missing"
