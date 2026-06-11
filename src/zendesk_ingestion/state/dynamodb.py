@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime
-from typing import Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import boto3
 import structlog
 from botocore.exceptions import ClientError
 
 from zendesk_ingestion.exceptions import StateConflictError
+
+if TYPE_CHECKING:
+    from mypy_boto3_dynamodb.service_resource import Table
 
 log = structlog.get_logger()
 
@@ -26,10 +30,23 @@ class StreamState(TypedDict):
 
 
 class StateManager:
+    """boto3 resource objects are not thread-safe and the orchestrator shares one
+    StateManager across a ThreadPoolExecutor, so each worker thread lazily gets its
+    own Table resource via thread-local storage.
+    """
+
     def __init__(self, table_name: str, region: str = "us-east-1") -> None:
         self._table_name = table_name
         self._region = region
-        self._table = boto3.resource("dynamodb", region_name=region).Table(table_name)
+        self._local = threading.local()
+
+    @property
+    def _table(self) -> Table:
+        table: Table | None = getattr(self._local, "table", None)
+        if table is None:
+            table = boto3.resource("dynamodb", region_name=self._region).Table(self._table_name)
+            self._local.table = table
+        return table
 
     def get_state(self, connector_id: str, stream_name: str) -> StreamState | None:
         """Return current state, or None if the stream has never been synced."""
@@ -108,6 +125,12 @@ class StateManager:
                     f"attempted to set cursor={new_cursor}"
                 ) from exc
             raise
+
+    def reset_cursor(self, connector_id: str, stream_name: str) -> None:
+        """Delete stored state so the next sync starts from scratch (full re-sync)."""
+        self._table.delete_item(
+            Key={"connector_id": connector_id, "stream_name": stream_name},
+        )
 
     def mark_failed(
         self,

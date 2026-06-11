@@ -1,0 +1,57 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+      - run: uv sync --all-extras
+      - run: uv run ruff check src/ tests/
+      - run: uv run ruff format --check src/ tests/
+      - run: uv run mypy src/
+      - run: uv run pytest --cov=src --cov-fail-under=80
+
+  build:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push
+        run: |
+          IMAGE=${{ secrets.ECR_REPO }}:${{ github.sha }}
+          docker build -t $IMAGE .
+          docker push $IMAGE
+          echo "ECR_IMAGE_URI=$IMAGE" >> $GITHUB_ENV
+      - name: Terraform deploy (staging)
+        working-directory: infra/terraform
+        # Networking is environment-specific; supply it as TF_VAR_* JSON secrets, e.g.
+        # STAGING_SUBNET_IDS='["subnet-a","subnet-b"]', STAGING_SECURITY_GROUP_IDS='["sg-x"]'.
+        env:
+          TF_VAR_subnet_ids: ${{ secrets.STAGING_SUBNET_IDS }}
+          TF_VAR_security_group_ids: ${{ secrets.STAGING_SECURITY_GROUP_IDS }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=zendesk-ingestion/staging.tfstate" \
+            -backend-config="region=us-east-1" \
+            -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}"
+          terraform apply -auto-approve \
+            -var="env=staging" \
+            -var="ecr_image_uri=$ECR_IMAGE_URI" \
+            -var="s3_bucket=${{ secrets.S3_BUCKET_STAGING }}"
